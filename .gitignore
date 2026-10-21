@@ -1,0 +1,6 @@
+# CMake build trees (build/, build-tsan/, ...)
+build*/
+
+# clangd: symlink to build/compile_commands.json, and its index cache
+compile_commands.json
+.cache/
