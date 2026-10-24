@@ -14,14 +14,12 @@ unique_fd::~unique_fd() {
 unique_fd::unique_fd(unique_fd&& other) noexcept
     : fd_{std::exchange(other.fd_, -1)} {}
 
-
 unique_fd& unique_fd::operator=(unique_fd&& other) noexcept {
     int tmp = std::exchange(other.fd_, -1);
-    if (fd_ != -1) ::close(fd_);
+    if (fd_ != -1)
+        ::close(fd_);
     fd_ = tmp;
     return *this;
 }
 
-int unique_fd::get() const noexcept {
-    return fd_;
-}
+int unique_fd::get() const noexcept { return fd_; }
