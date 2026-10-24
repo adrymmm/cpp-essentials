@@ -9,17 +9,20 @@ buffer::~buffer() {
     delete[] data_;
 }
 
+void buffer::swap(buffer& other) noexcept {
+    std::swap(size_, other.size_);
+    std::swap(data_, other.data_);
+}
+
 buffer::buffer(const buffer& other)
     : size_{other.size()}, data_{new int[other.size()]} {
     std::copy(other.data_, other.data_ + other.size(), data_);
 }
 
 buffer& buffer::operator=(const buffer& other) {
-    int* temp = new int[other.size()];
-    std::copy(other.data_, other.data_ + other.size(), temp);
-    delete[] data_;
-    data_ = temp;
-    size_ = other.size();
+    // idiomatic copy-and-swap
+    buffer copy = other;
+    copy.swap(*this);
     return *this;
 }
 

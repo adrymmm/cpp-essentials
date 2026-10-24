@@ -12,6 +12,9 @@ public:
 
     buffer(buffer&& other) noexcept;
     buffer& operator=(buffer&& other) noexcept;
+    
+    // swap contents of one buffer with another
+    void swap(buffer& other) noexcept;
 
     // i < size() required -- out of range is UB
     int& operator[](std::size_t i) noexcept;
