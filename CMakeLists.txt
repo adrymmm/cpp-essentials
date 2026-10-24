@@ -18,3 +18,4 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 add_subdirectory(fd)
+add_subdirectory(buffer)
