@@ -1,13 +1,10 @@
 #include "buffer.hpp"
 #include <algorithm>
+#include <memory>
 #include <utility>
 
-buffer::buffer(std::size_t size) : size_{size}, data_{new int[size]{}} {}
-
-buffer::~buffer() {
-    // safe to delete nullptr -- no guard
-    delete[] data_;
-}
+buffer::buffer(std::size_t size)
+    : size_{size}, data_{std::make_unique<int[]>(size)} {}
 
 void buffer::swap(buffer& other) noexcept {
     std::swap(size_, other.size_);
@@ -15,8 +12,9 @@ void buffer::swap(buffer& other) noexcept {
 }
 
 buffer::buffer(const buffer& other)
-    : size_{other.size()}, data_{new int[other.size()]} {
-    std::copy(other.data_, other.data_ + other.size(), data_);
+    : size_{other.size()},
+      data_{std::make_unique_for_overwrite<int[]>(other.size())} {
+    std::copy(other.data_.get(), other.data_.get() + other.size(), data_.get());
 }
 
 buffer& buffer::operator=(const buffer& other) {
@@ -27,15 +25,11 @@ buffer& buffer::operator=(const buffer& other) {
 }
 
 buffer::buffer(buffer&& other) noexcept
-    : size_{std::exchange(other.size_, 0)},
-      data_{std::exchange(other.data_, nullptr)} {}
+    : size_{std::exchange(other.size_, 0)}, data_{std::move(other.data_)} {}
 
 buffer& buffer::operator=(buffer&& other) noexcept {
-    int* new_data = std::exchange(other.data_, nullptr);
-    std::size_t new_size = std::exchange(other.size_, 0);
-    delete[] data_;
-    data_ = new_data;
-    size_ = new_size;
+    data_ = std::move(other.data_);
+    size_ = std::exchange(other.size_, 0);
     return *this;
 }
 

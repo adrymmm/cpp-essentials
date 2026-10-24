@@ -1,19 +1,18 @@
 #pragma once
 #include <cstddef>
+#include <memory>
 
 class buffer {
 public:
     buffer() = default;
     explicit buffer(std::size_t size);
-    ~buffer();
 
     buffer(const buffer& other);
     buffer& operator=(const buffer& other);
 
     buffer(buffer&& other) noexcept;
     buffer& operator=(buffer&& other) noexcept;
-    
-    // swap contents of one buffer with another
+
     void swap(buffer& other) noexcept;
 
     // i < size() required -- out of range is UB
@@ -24,5 +23,5 @@ public:
 
 private:
     std::size_t size_ = 0;
-    int* data_ = nullptr;
+    std::unique_ptr<int[]> data_;
 };
