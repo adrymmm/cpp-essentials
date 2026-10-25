@@ -16,6 +16,9 @@ FetchContent_Declare(googletest
   GIT_TAG v1.17.0)
 FetchContent_MakeAvailable(googletest)
 
+add_library(project_warnings INTERFACE)
+target_compile_options(project_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow)
+
 enable_testing()
 add_subdirectory(fd)
 add_subdirectory(buffer)
