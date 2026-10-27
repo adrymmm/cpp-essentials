@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <iterator>
 #include <optional>
 #include <utility>
 
@@ -10,6 +11,44 @@
 template <typename T, std::size_t N> class RingBuffer {
 public:
     static_assert(N > 0, "buffer cannot be zero");
+
+    class iterator {
+    public:
+        using iterator_concept = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+
+        iterator() = default;
+        iterator(RingBuffer& rb, std::size_t i) : rb_{&rb}, i_{i} {}
+
+        // dereferencing maps from index position to position in buffer (due to
+        // wraparoudn)
+        T& operator*() const {
+            auto slot = (rb_->head_ + i_) % N;
+            return rb_->buf_[slot];
+        }
+
+        iterator& operator++() {
+            ++i_;
+            return *this;
+        }
+
+        iterator operator++(int) {
+            auto old{*this}; // save old value
+            ++*this;         // advance iterator
+            return old;
+        }
+
+        bool operator==(const iterator&) const = default;
+
+    private:
+        RingBuffer* rb_{};
+        std::size_t i_ = 0;
+    };
+
+    iterator begin() { return iterator{*this, 0}; }
+
+    iterator end() { return iterator{*this, size_}; }
 
     bool full() const noexcept { return (size_ == N); }
     bool empty() const noexcept { return (size_ == 0); }
@@ -36,8 +75,6 @@ public:
         ++size_;
         return true;
     }
-
-    // TODO Iterators and concept on T
 
 private:
     std::array<T, N> buf_;
