@@ -4,6 +4,8 @@
 #include <optional>
 #include <utility>
 
+/* T should be default-constructible (done through array); state is held through head_ and size_
+ * (head_ + size_) % N (tail), size_ == N (full) size_ == 0 (empty)*/
 template<typename T, std::size_t N>
 class RingBuffer {
     public:
@@ -13,7 +15,7 @@ class RingBuffer {
         bool empty() const noexcept { return (size_ == 0); }
         std::size_t size() const noexcept { return size_; }
         
-        // caller needs to check for nullopt
+        // returns nullopt when empty, otherwise front element moved out
         std::optional<T> pop() {
             if (empty()) { return std::nullopt; }
 
@@ -23,7 +25,7 @@ class RingBuffer {
             return std::move(buf_[old_head]);
         }
         
-        // caller has to handle fail (full buffer)
+        // returns false when full and buffer is unchanged
         [[nodiscard]] bool push(const T& elem) {
             if (full()) return false;
             std::size_t tail = (head_ + size_) % N;
