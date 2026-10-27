@@ -1,5 +1,13 @@
 #include "ring_buffer.hpp"
+#include <algorithm>
 #include <gtest/gtest.h>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <vector>
+
+// check if iterator meets forwrad iter concept
+static_assert(std::forward_iterator<RingBuffer<int, 3>::iterator>);
 
 TEST(Ring, EmptyPop) {
     RingBuffer<std::string, 2> buf;
@@ -54,4 +62,51 @@ TEST(Ring, HeapAllocString) {
 
     EXPECT_EQ(buf.pop(), "This is a longer sentence two");
     EXPECT_EQ(buf.pop(), "This is a longer sentence three");
+}
+
+TEST(Ring, RangeForFullBuffer) {
+    RingBuffer<std::string, 2> buf;
+    ASSERT_TRUE(buf.push("A"));
+    ASSERT_TRUE(buf.push("B"));
+    ASSERT_EQ(buf.pop(), "A");
+    // wrap-around
+    ASSERT_TRUE(buf.push("C"));
+
+    std::vector<std::string> vec{};
+
+    for (const auto& x : buf) {
+        vec.push_back(x);
+    }
+
+    EXPECT_EQ(vec, (std::vector<std::string>{"B", "C"}));
+}
+
+TEST(Ring, FindAndCountOnBuf) {
+    RingBuffer<std::string, 4> buf;
+    ASSERT_TRUE(buf.push("A"));
+    ASSERT_TRUE(buf.push("B"));
+    ASSERT_TRUE(buf.push("C"));
+    ASSERT_TRUE(buf.push("B"));
+
+    auto it = std::ranges::find(buf, "C");
+    auto absent = std::ranges::find(buf, "D");
+
+    EXPECT_EQ(absent, buf.end()); // absent not found, returns end()
+    ASSERT_NE(it, buf.end());     // it found
+    EXPECT_EQ(*it, "C");
+
+    auto count = std::ranges::count(buf, "B");
+    ASSERT_EQ(count, 2);
+}
+
+TEST(Ring, Postfix) {
+    RingBuffer<std::string, 2> buf;
+    ASSERT_TRUE(buf.push("A"));
+    ASSERT_TRUE(buf.push("B"));
+
+    auto it = buf.begin();
+    auto old = it++;
+
+    EXPECT_EQ(*old, "A");
+    EXPECT_EQ(*it, "B");
 }
