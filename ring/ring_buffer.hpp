@@ -1,43 +1,46 @@
 #pragma once
-#include <cstddef>
 #include <array>
+#include <cstddef>
 #include <optional>
 #include <utility>
 
-/* T should be default-constructible (done through array); state is held through head_ and size_
- * (head_ + size_) % N (tail), size_ == N (full) size_ == 0 (empty)*/
-template<typename T, std::size_t N>
-class RingBuffer {
-    public:
-        static_assert(N > 0, "buffer cannot be zero");
-        
-        bool full() const noexcept { return (size_ == N); }
-        bool empty() const noexcept { return (size_ == 0); }
-        std::size_t size() const noexcept { return size_; }
-        
-        // returns nullopt when empty, otherwise front element moved out
-        std::optional<T> pop() {
-            if (empty()) { return std::nullopt; }
+/* T should be default-constructible (done through array); state is held through
+ * head_ and size_ (head_ + size_) % N (tail), size_ == N (full) size_ == 0
+ * (empty)*/
+template <typename T, std::size_t N> class RingBuffer {
+public:
+    static_assert(N > 0, "buffer cannot be zero");
 
-            std::size_t old_head = head_;
-            head_ = (head_ + 1) % N;  // advance head with wrap-around
-            --size_;
-            return std::move(buf_[old_head]);
+    bool full() const noexcept { return (size_ == N); }
+    bool empty() const noexcept { return (size_ == 0); }
+    std::size_t size() const noexcept { return size_; }
+
+    // returns nullopt when empty, otherwise front element moved out
+    std::optional<T> pop() {
+        if (empty()) {
+            return std::nullopt;
         }
-        
-        // returns false when full and buffer is unchanged
-        [[nodiscard]] bool push(const T& elem) {
-            if (full()) return false;
-            std::size_t tail = (head_ + size_) % N;
-            buf_[tail] = elem;
-            ++size_;
-            return true;
-        }
+
+        std::size_t old_head = head_;
+        head_ = (head_ + 1) % N; // advance head with wrap-around
+        --size_;
+        return std::move(buf_[old_head]);
+    }
+
+    // returns false when full and buffer is unchanged
+    [[nodiscard]] bool push(const T& elem) {
+        if (full())
+            return false;
+        std::size_t tail = (head_ + size_) % N;
+        buf_[tail] = elem;
+        ++size_;
+        return true;
+    }
 
     // TODO Iterators and concept on T
 
-    private:
-        std::array<T, N> buf_;
-        std::size_t size_ = 0;
-        std::size_t head_ = 0;
+private:
+    std::array<T, N> buf_;
+    std::size_t size_ = 0;
+    std::size_t head_ = 0;
 };

@@ -36,6 +36,8 @@ TEST(CFile, ClosesOnScopeExit) {
 
 TEST(CFile, NullNeverReachesDeleter) {
     file_closer_count::count = 0;
-    { std::unique_ptr<std::FILE, file_closer_count> p{nullptr}; }
+    {
+        std::unique_ptr<std::FILE, file_closer_count> p{nullptr};
+    }
     EXPECT_EQ(file_closer_count::count, 0);
 }
