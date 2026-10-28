@@ -1,13 +1,25 @@
 #include "ring_buffer.hpp"
 #include <algorithm>
+#include <concepts>
 #include <gtest/gtest.h>
 #include <iterator>
 #include <optional>
 #include <string>
 #include <vector>
 
+struct no_ctor {
+    no_ctor() = delete;
+};
+
 // check if iterator meets forwrad iter concept
 static_assert(std::forward_iterator<RingBuffer<int, 3>::iterator>);
+
+// check if semiregular concept binds through failing default_initializable
+template <typename T>
+concept RingAccepts = requires { typename RingBuffer<T, 4>; };
+
+static_assert(!RingAccepts<no_ctor>);
+static_assert(RingAccepts<int>);
 
 TEST(Ring, EmptyPop) {
     RingBuffer<std::string, 2> buf;
