@@ -1,14 +1,15 @@
 #pragma once
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <iterator>
 #include <optional>
 #include <utility>
 
-/* T should be default-constructible (done through array); state is held through
- * head_ and size_ (head_ + size_) % N (tail), size_ == N (full) size_ == 0
- * (empty)*/
-template <typename T, std::size_t N> class RingBuffer {
+/* FIFO ring buffer: slot of position i = (head_ + i) % N; empty size_ == 0,
+ * full size_ == N. semiregular: default ctor fills buf_, copy-assign for push,
+ * move ctor for pop. push/pop invalidate iterators. */
+template <std::semiregular T, std::size_t N> class RingBuffer {
 public:
     static_assert(N > 0, "buffer cannot be zero");
 
