@@ -17,6 +17,7 @@ FetchContent_Declare(googletest
 FetchContent_MakeAvailable(googletest)
 
 add_library(project_warnings INTERFACE)
+find_package(Threads REQUIRED)
 target_compile_options(project_warnings INTERFACE -Wall -Wextra -Wpedantic -Wshadow)
 
 enable_testing()
@@ -25,3 +26,4 @@ add_subdirectory(buffer)
 add_subdirectory(counting)
 add_subdirectory(cfile)
 add_subdirectory(ring)
+add_subdirectory(spsc)
