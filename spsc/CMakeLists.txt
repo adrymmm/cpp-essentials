@@ -6,4 +6,4 @@ add_executable(spsc_queue_test spsc_queue_test.cpp)
 target_link_libraries(spsc_queue_test PRIVATE spsc GTest::gtest_main project_warnings)
 
 include(GoogleTest)
-gtest_discover_tests(spsc_queue_test)
+gtest_discover_tests(spsc_queue_test PROPERTIES TIMEOUT 10)
