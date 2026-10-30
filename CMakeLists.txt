@@ -6,9 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)          # -std=c++20, not gnu++20
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clangd
 
+set (SANITIZER"address" CACHE STRING "")
+
 # Sanitizers on everything (incl. GoogleTest) so the whole binary is instrumented
-add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
-add_link_options(-fsanitize=address,undefined)
+add_compile_options(-fsanitize=${SANITIZER},undefined -fno-omit-frame-pointer)
+add_link_options(-fsanitize=${SANITIZER},undefined)
 
 include(FetchContent)
 FetchContent_Declare(googletest
