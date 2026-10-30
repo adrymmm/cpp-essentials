@@ -1,5 +1,6 @@
 #include "spsc_queue.hpp"
 #include <gtest/gtest.h>
+#include <numeric>
 #include <optional>
 #include <thread>
 
@@ -62,4 +63,35 @@ TEST(Spsc, MThreadPushFullQueue) {
     }
     // join is called here through jthread destructor
     EXPECT_FALSE(last_push);
+}
+
+// Fill a 4 elem queue up and then keep trying to push and pop to test interleaving
+TEST(Spsc, MThreadStressTest) {
+    SpscQueue<int, 4> q;
+    std::vector<int> vect;
+    bool status = true;
+    {
+        std::jthread prod{[&q, &status] {
+            for (int i = 0; i < 100000; i++) {
+                status = q.push(i) && status;
+            }
+            q.close();
+        }};
+    
+    std::jthread cons{[&q, &vect] {
+        // while v is not optnull
+        while (auto v = q.pop()) {
+            vect.push_back(*v);
+                }
+            }};
+    }
+    // main thread continues here
+    EXPECT_TRUE(status);
+    ASSERT_EQ(vect.size(), 100000u);
+
+    // building sequential vector
+    std::vector<int> seqv(100000);
+    std::iota(seqv.begin(), seqv.end(), 0);
+    ASSERT_EQ(vect, seqv);
+
 }
