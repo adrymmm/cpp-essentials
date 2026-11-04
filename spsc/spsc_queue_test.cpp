@@ -1,5 +1,6 @@
 #include "spsc_queue.hpp"
 #include <gtest/gtest.h>
+#include <chrono>
 #include <numeric>
 #include <optional>
 #include <thread>
@@ -42,6 +43,8 @@ TEST(Spsc, MThreadPopEmptyQueue) {
             // 2nd thread pops empty queue
             pop_res = q.pop();
         }};
+        // give popper time to block so close must wake it
+        std::this_thread::sleep_for(std::chrono::milliseconds{50});
         // run close on main thread
         q.close();
     }
@@ -59,6 +62,8 @@ TEST(Spsc, MThreadPushFullQueue) {
             // 2nd thread pushes
             last_push = q.push(3);
         }};
+        // give pusher time to block so close must wake it
+        std::this_thread::sleep_for(std::chrono::milliseconds{50});
         q.close();
     }
     // join is called here through jthread destructor
