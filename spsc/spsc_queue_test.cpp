@@ -1,4 +1,5 @@
 #include "spsc_queue.hpp"
+#include "spsc_queue_atomic.hpp"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <numeric>
@@ -74,10 +75,11 @@ TEST(Spsc, MThreadPushFullQueue) {
 TEST(Spsc, MThreadStressTest) {
     SpscQueue<int, 4> q;
     std::vector<int> vect;
+    constexpr int n = 100000;
     bool status = true;
     {
         std::jthread prod{[&q, &status] {
-            for (int i = 0; i < 100000; i++) {
+            for (int i = 0; i < n; i++) {
                 status = q.push(i) && status;
             }
             q.close();
@@ -92,11 +94,42 @@ TEST(Spsc, MThreadStressTest) {
     }
     // main thread continues here
     EXPECT_TRUE(status);
-    ASSERT_EQ(vect.size(), 100000u);
+    ASSERT_EQ(vect.size(), static_cast<std::size_t>(n));
 
     // building sequential vector
-    std::vector<int> seqv(100000);
+    std::vector<int> seqv(n);
     std::iota(seqv.begin(), seqv.end(), 0);
     ASSERT_EQ(vect, seqv);
 
+}
+
+TEST(Spsc, AtomicStressTest) {
+    SpscQueueAtomic<int, 4> q;
+    std::vector<int> vect;
+    bool status = true;
+    constexpr int n = 100000;
+    {
+        std::jthread prod{[&q, &status] {
+            for (int i = 0; i < n; ++i) {
+                status = q.push(i) && status;
+            }
+        }};
+    
+        std::jthread cons{[&q, &vect] {
+            for (int i = 0; i < n; ++i) {
+                auto v = q.pop();
+                if (v)
+                    vect.push_back(*v);
+                }
+            }};
+    }
+
+    // main thread continues here
+    EXPECT_TRUE(status);
+    ASSERT_EQ(vect.size(), static_cast<std::size_t>(n));
+
+    // building sequential vector
+    std::vector<int> seqv(n);
+    std::iota(seqv.begin(), seqv.end(), 0);
+    ASSERT_EQ(vect, seqv);
 }
