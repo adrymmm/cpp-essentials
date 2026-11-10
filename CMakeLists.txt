@@ -6,11 +6,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)          # -std=c++20, not gnu++20
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # for clangd
 
-set (SANITIZER"address" CACHE STRING "")
+set (SANITIZER "" CACHE STRING "")
 
-# Sanitizers on everything (incl. GoogleTest) so the whole binary is instrumented
-add_compile_options(-fsanitize=${SANITIZER},undefined -fno-omit-frame-pointer)
-add_link_options(-fsanitize=${SANITIZER},undefined)
+# check if sanitizer var is set
+if (SANITIZER)
+
+    add_compile_options(-fsanitize=${SANITIZER},undefined -fno-omit-frame-pointer)
+    # if sanitizer is TSan add vptr flag 
+    if (SANITIZER STREQUAL "thread")
+        add_compile_options(-fno-sanitize=vptr)
+    endif()
+
+    add_link_options(-fsanitize=${SANITIZER},undefined)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(googletest
