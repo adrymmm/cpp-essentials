@@ -1,17 +1,40 @@
 #include "spsc_queue_atomic.hpp"
 #include "spsc_queue.hpp"
+#include <algorithm>
+#include <vector>
 #include <iostream>
 #include <format>
 #include <atomic>
 #include <chrono>
 #include <thread>
 #include <optional>
+#include <string_view>
+
+#if defined(__SANITIZE_ADDRESS__)
+constexpr std::string_view sanitizers = "ASan + UBSan";
+#elif defined(__SANITIZE_THREAD__)
+constexpr std::string_view sanitizers = "TSan + UBSan";
+#else
+constexpr std::string_view sanitizers = "none";
+#endif
+
+#ifdef NDEBUG
+constexpr std::string_view asserts = "NDEBUG";
+#else
+constexpr std::string_view asserts = "asserts on";
+#endif
+
+#ifdef __OPTIMIZE__
+constexpr std::string_view opt = "optimised";
+#else
+constexpr std::string_view opt = "-O0";
+#endif
 
 
 // runs SPSC queue with n pushes/pops; returns nullopt if queue fails, or otherwise
 // it returns the time elapsed to push/pop n in nanoseconds
 template <typename Q> 
-std::optional<std::chrono::nanoseconds> run_queue(int n) {
+[[nodiscard]] std::optional<std::chrono::nanoseconds> run_queue(int n) {
     // sync flag
     std::atomic<bool> go{false};
     std::chrono::steady_clock::time_point stop;
@@ -23,7 +46,7 @@ std::optional<std::chrono::nanoseconds> run_queue(int n) {
     {
         std::jthread prod{[&q, &prod_ok, &go, n] {
             // spin on go
-            while(!go.load(std::memory_order_acquire)) {};   
+            while(!go.load(std::memory_order_acquire)) {}   
             for (int i = 0; i < n; i++) {
                 if (!q.push(i)) {
                     prod_ok = false;
@@ -34,7 +57,7 @@ std::optional<std::chrono::nanoseconds> run_queue(int n) {
         }};
 
         std::jthread cons{[&q, &cons_ok, &go, &stop, n] {
-            while(!go.load(std::memory_order_acquire)) {};   
+            while(!go.load(std::memory_order_acquire)) {}   
             int expected = 0;
             // pop until nullopt
             while (auto v = q.pop()) {
@@ -62,27 +85,67 @@ std::optional<std::chrono::nanoseconds> run_queue(int n) {
 } 
 
 int main() {
-    const int TIMES = 10'000'000;
-    const int SIZE = 1024;
-    bool failed = false;
+    constexpr int n_items = 10'000'000;
+    constexpr int capacity = 1024;
+    constexpr int runs = 11;
+    std::vector<std::chrono::nanoseconds> mvec;
+    std::vector<std::chrono::nanoseconds> avec;
     
-    std::optional<std::chrono::nanoseconds> mutex_time = run_queue<SpscQueue<int, SIZE>>(TIMES);
-    std::optional<std::chrono::nanoseconds> atomic_time = run_queue<SpscQueueAtomic<int, SIZE>>(TIMES);
-    
-    if (mutex_time) {
-        std::cout << std::format("mutex: {}\n", *mutex_time);
+    // warm-up runs; dont count in median benchmark
+    if (!run_queue<SpscQueue<int, capacity>>(n_items)) {
+        std::cerr << ("mutex: failed on warm-up\n");
+        return 1;
     }
-    else {
-        std::cerr << ("mutex: failed\n");
-        failed = true;
+    
+    if (!run_queue<SpscQueueAtomic<int, capacity>>(n_items)) {
+        std::cerr << ("atomic: failed on warm-up\n");
+        return 1;
     }
 
-    if (atomic_time) {
-        std::cout << std::format("atomic: {}\n", *atomic_time);
+    // odd for median
+    for (int i = 0; i < runs; ++i) {
+        std::optional<std::chrono::nanoseconds> mutex_time = run_queue<SpscQueue<int, capacity>>(n_items);
+        std::optional<std::chrono::nanoseconds> atomic_time = run_queue<SpscQueueAtomic<int, capacity>>(n_items);
+        
+        if (mutex_time) {
+            mvec.push_back(*mutex_time);
+        }
+        else {
+            std::cerr << std::format("mutex: failed on iteration {}\n", i);
+            return 1;
+        }
+
+        if (atomic_time) {
+            avec.push_back(*atomic_time);
+        }
+        else {
+            std::cerr << std::format("atomic: failed on iteration {}\n", i);
+            return 1;
+        }
     }
-    else {
-        std::cerr << ("atomic: failed\n");
-        failed = true;
-    }
-    return failed ? 1 : 0;
+    // sort then take median
+    std::ranges::sort(mvec);
+    std::ranges::sort(avec);
+
+    auto ms = [](std::chrono::nanoseconds t) {
+        return std::chrono::duration<double, std::milli>{t}.count();
+    };
+    auto row = [&](std::string_view name, const std::vector<std::chrono::nanoseconds>& v) {
+        const auto median = v[runs / 2];
+        std::cout << std::format("{:<8}{:>12.1f}{:>10.1f}{:>10.1f}{:>11.1f}\n",
+                                 name, ms(median), ms(v.front()), ms(v.back()),
+                                 static_cast<double>(median.count()) / n_items);
+    };
+
+    std::cout << std::format("build: {}, {}, sanitizers: {}\n", opt, asserts, sanitizers);
+    std::cout << std::format("n = {} items, capacity = {}, runs = {} (+1 warm-up)\n\n",
+                             n_items, capacity, runs);
+    std::cout << std::format("{:<8}{:>12}{:>10}{:>10}{:>11}\n",
+                             "queue", "median ms", "min ms", "max ms", "ns/item");
+    row("mutex", mvec);
+    row("atomic", avec);
+
+    const double speedup = static_cast<double>(mvec[runs / 2].count())
+                         / static_cast<double>(avec[runs / 2].count());
+    std::cout << std::format("speedup (median): {:.1f}x\n", speedup);
 }
