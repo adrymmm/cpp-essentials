@@ -5,6 +5,7 @@
 #include <chrono>
 #include <format>
 #include <iostream>
+#include <latch>
 #include <optional>
 #include <string_view>
 #include <thread>
@@ -36,6 +37,7 @@ template <typename Q>
 [[nodiscard]] std::optional<std::chrono::nanoseconds> run_queue(int n) {
     // sync flag
     std::atomic<bool> go{false};
+    std::latch ready{2};
     std::chrono::steady_clock::time_point stop;
     std::chrono::steady_clock::time_point start;
     bool prod_ok = true;
@@ -43,7 +45,9 @@ template <typename Q>
 
     Q q;
     {
-        std::jthread prod{[&q, &prod_ok, &go, n] {
+        std::jthread prod{[&q, &prod_ok, &go, &ready, n] {
+            // signal to main that thread is spinning
+            ready.count_down();
             // spin on go
             while (!go.load(std::memory_order_acquire)) {
             }
@@ -56,7 +60,9 @@ template <typename Q>
             q.close();
         }};
 
-        std::jthread cons{[&q, &cons_ok, &go, &stop, n] {
+        std::jthread cons{[&q, &cons_ok, &go, &stop, &ready, n] {
+            // signal to main that thread is spinning
+            ready.count_down();
             while (!go.load(std::memory_order_acquire)) {
             }
             int expected = 0;
@@ -73,9 +79,12 @@ template <typename Q>
                 cons_ok = false;
             stop = std::chrono::steady_clock::now();
         }};
+        // main waits for latch counter to go to 0
+        ready.wait();
 
         // main thread starts timer HERE
         start = std::chrono::steady_clock::now();
+
         // release both threads
         go.store(true, std::memory_order_release);
     }
