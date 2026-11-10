@@ -103,6 +103,7 @@ int main() {
     constexpr int runs = 11;
     std::vector<std::chrono::nanoseconds> mvec;
     std::vector<std::chrono::nanoseconds> avec;
+    std::vector<std::chrono::nanoseconds> avec64;
 
     // warm-up runs; dont count in median benchmark
     if (!run_queue<SpscQueue<int, capacity>>(n_items)) {
@@ -115,12 +116,20 @@ int main() {
         return 1;
     }
 
+    // 64 byte padding
+    if (!run_queue<SpscQueueAtomic<int, capacity, 64>>(n_items)) {
+        std::cerr << ("atomic64: failed on warm-up\n");
+        return 1;
+    }
+
     // odd for median
     for (int i = 0; i < runs; ++i) {
         std::optional<std::chrono::nanoseconds> mutex_time =
             run_queue<SpscQueue<int, capacity>>(n_items);
         std::optional<std::chrono::nanoseconds> atomic_time =
             run_queue<SpscQueueAtomic<int, capacity>>(n_items);
+        std::optional<std::chrono::nanoseconds> atomic64_time =
+            run_queue<SpscQueueAtomic<int, capacity, 64>>(n_items);
 
         if (mutex_time) {
             mvec.push_back(*mutex_time);
@@ -135,14 +144,23 @@ int main() {
             std::cerr << std::format("atomic: failed on iteration {}\n", i);
             return 1;
         }
+
+        if (atomic64_time) {
+            avec64.push_back(*atomic64_time);
+        } else {
+            std::cerr << std::format("atomic64: failed on iteration {}\n", i);
+            return 1;
+        }
     }
     // sort then take median
     std::ranges::sort(mvec);
     std::ranges::sort(avec);
+    std::ranges::sort(avec64);
 
     auto ms = [](std::chrono::nanoseconds t) {
         return std::chrono::duration<double, std::milli>{t}.count();
     };
+
     auto row = [&](std::string_view name,
                    const std::vector<std::chrono::nanoseconds>& v) {
         const auto median = v[runs / 2];
@@ -160,8 +178,15 @@ int main() {
                              "median ms", "min ms", "max ms", "ns/item");
     row("mutex", mvec);
     row("atomic", avec);
+    row("atomic64", avec64);
 
     const double speedup = static_cast<double>(mvec[runs / 2].count()) /
                            static_cast<double>(avec[runs / 2].count());
-    std::cout << std::format("speedup (median): {:.1f}x\n", speedup);
+    std::cout << std::format("\nspeedup, mutex / atomic (median): {:.1f}x\n",
+                             speedup);
+
+    const double pad_speedup = static_cast<double>(avec[runs / 2].count()) /
+                               static_cast<double>(avec64[runs / 2].count());
+    std::cout << std::format("padding, atomic / atomic64 (median): {:.2f}x\n",
+                             pad_speedup);
 }
