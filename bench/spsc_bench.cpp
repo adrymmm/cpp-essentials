@@ -104,6 +104,7 @@ int main() {
     std::vector<std::chrono::nanoseconds> mvec;
     std::vector<std::chrono::nanoseconds> avec;
     std::vector<std::chrono::nanoseconds> avec64;
+    std::vector<std::chrono::nanoseconds> avec128;
 
     // warm-up runs; dont count in median benchmark
     if (!run_queue<SpscQueue<int, capacity>>(n_items)) {
@@ -121,6 +122,12 @@ int main() {
         std::cerr << ("atomic64: failed on warm-up\n");
         return 1;
     }
+    
+    // 128 byte padding
+    if (!run_queue<SpscQueueAtomic<int, capacity, 128>>(n_items)) {
+        std::cerr << ("atomic128: failed on warm-up\n");
+        return 1;
+    }
 
     // odd for median
     for (int i = 0; i < runs; ++i) {
@@ -130,6 +137,8 @@ int main() {
             run_queue<SpscQueueAtomic<int, capacity>>(n_items);
         std::optional<std::chrono::nanoseconds> atomic64_time =
             run_queue<SpscQueueAtomic<int, capacity, 64>>(n_items);
+        std::optional<std::chrono::nanoseconds> atomic128_time =
+            run_queue<SpscQueueAtomic<int, capacity, 128>>(n_items);
 
         if (mutex_time) {
             mvec.push_back(*mutex_time);
@@ -151,11 +160,19 @@ int main() {
             std::cerr << std::format("atomic64: failed on iteration {}\n", i);
             return 1;
         }
+
+        if (atomic128_time) {
+            avec128.push_back(*atomic128_time);
+        } else {
+            std::cerr << std::format("atomic128: failed on iteration {}\n", i);
+            return 1;
+        }
     }
     // sort then take median
     std::ranges::sort(mvec);
     std::ranges::sort(avec);
     std::ranges::sort(avec64);
+    std::ranges::sort(avec128);
 
     auto ms = [](std::chrono::nanoseconds t) {
         return std::chrono::duration<double, std::milli>{t}.count();
@@ -164,7 +181,7 @@ int main() {
     auto row = [&](std::string_view name,
                    const std::vector<std::chrono::nanoseconds>& v) {
         const auto median = v[runs / 2];
-        std::cout << std::format("{:<8}{:>12.1f}{:>10.1f}{:>10.1f}{:>11.1f}\n",
+        std::cout << std::format("{:<10}{:>12.1f}{:>10.1f}{:>10.1f}{:>11.1f}\n",
                                  name, ms(median), ms(v.front()), ms(v.back()),
                                  static_cast<double>(median.count()) / n_items);
     };
@@ -174,19 +191,27 @@ int main() {
     std::cout << std::format(
         "n = {} items, capacity = {}, runs = {} (+1 warm-up)\n\n", n_items,
         capacity, runs);
-    std::cout << std::format("{:<8}{:>12}{:>10}{:>10}{:>11}\n", "queue",
+    std::cout << std::format("{:<10}{:>12}{:>10}{:>10}{:>11}\n", "queue",
                              "median ms", "min ms", "max ms", "ns/item");
     row("mutex", mvec);
     row("atomic", avec);
     row("atomic64", avec64);
+    row("atomic128", avec128);
 
     const double speedup = static_cast<double>(mvec[runs / 2].count()) /
                            static_cast<double>(avec[runs / 2].count());
     std::cout << std::format("\nspeedup, mutex / atomic (median): {:.1f}x\n",
                              speedup);
 
-    const double pad_speedup = static_cast<double>(avec[runs / 2].count()) /
+    const double pad64_speedup = static_cast<double>(avec[runs / 2].count()) /
                                static_cast<double>(avec64[runs / 2].count());
+
+    const double pad128_speedup = static_cast<double>(avec[runs / 2].count()) /
+                               static_cast<double>(avec128[runs / 2].count());
+
     std::cout << std::format("padding, atomic / atomic64 (median): {:.2f}x\n",
-                             pad_speedup);
+                             pad64_speedup);
+
+    std::cout << std::format("padding, atomic / atomic128 (median): {:.2f}x\n",
+                             pad128_speedup);
 }
