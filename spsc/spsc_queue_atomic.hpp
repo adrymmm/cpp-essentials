@@ -18,8 +18,8 @@ class SpscQueueAtomic {
 
 public:
     // either no padding or one cache line (64 bytes)
-    static_assert(P == alignof(std::atomic<std::size_t>) || P == 64,
-                  "P: either natural alignment or 64 bytes");
+    static_assert(P == alignof(std::atomic<std::size_t>) || P == 64 || P == 128,
+                  "P: either natural alignment, 64, or 128 bytes");
 
     SpscQueueAtomic() {
         // each index starts at a multiple of P; for P = 64, its own cache line
