@@ -1,3 +1,4 @@
+#include "build_info.hpp"
 #include "spsc_queue.hpp"
 #include "spsc_queue_atomic.hpp"
 #include <algorithm>
@@ -10,26 +11,6 @@
 #include <string_view>
 #include <thread>
 #include <vector>
-
-#if defined(__SANITIZE_ADDRESS__)
-constexpr std::string_view sanitizers = "ASan + UBSan";
-#elif defined(__SANITIZE_THREAD__)
-constexpr std::string_view sanitizers = "TSan + UBSan";
-#else
-constexpr std::string_view sanitizers = "none";
-#endif
-
-#ifdef NDEBUG
-constexpr std::string_view asserts = "NDEBUG";
-#else
-constexpr std::string_view asserts = "asserts on";
-#endif
-
-#ifdef __OPTIMIZE__
-constexpr std::string_view opt = "optimised";
-#else
-constexpr std::string_view opt = "-O0";
-#endif
 
 // runs SPSC queue with n pushes/pops; returns nullopt if queue fails, or
 // otherwise it returns the time elapsed to push/pop n in nanoseconds
